@@ -1,13 +1,31 @@
-import { Cartesian3, Color, Ion } from "cesium";
-import { useState } from "react";
-import { Entity, Viewer } from "resium";
+import {
+  Cartesian3,
+  Color,
+  Ion,
+  JulianDate,
+  ClockRange,
+  ClockStep,
+  KeyboardEventModifier,
+  ScreenSpaceEventType,
+} from "cesium";
+import { useState, useRef, useEffect } from "react";
+import {
+  Clock,
+  Entity,
+  Viewer,
+  ScreenSpaceEventHandler,
+  ScreenSpaceEvent,
+} from "resium";
 
 import { API_KEY } from "../API";
 Ion.defaultAccessToken = API_KEY;
 
 export default function Cesium({ centroids }) {
+  const ref = useRef(null);
+  const [state, setState] = useState(null);
+
   return (
-    <Viewer full>
+    <Viewer full ref={ref} timeline={false} animation={false}>
       {centroids &&
         centroids.map((el) => {
           return (
@@ -21,6 +39,12 @@ export default function Cesium({ centroids }) {
             />
           );
         })}
+      <ScreenSpaceEventHandler>
+        <ScreenSpaceEvent
+          action={(evt) => console.log(evt)}
+          type={ScreenSpaceEventType.LEFT_CLICK}
+        />
+      </ScreenSpaceEventHandler>
     </Viewer>
   );
 }
