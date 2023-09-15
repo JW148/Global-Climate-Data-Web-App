@@ -8,24 +8,30 @@ import {
   KeyboardEventModifier,
   ScreenSpaceEventType,
 } from "cesium";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import {
   Clock,
   Entity,
   Viewer,
   ScreenSpaceEventHandler,
   ScreenSpaceEvent,
+  useCesium,
 } from "resium";
 
 import { API_KEY } from "../API";
 Ion.defaultAccessToken = API_KEY;
 
-export default function Cesium({ centroids }) {
+export default function Cesium({ centroids, date, setDate }) {
   const ref = useRef(null);
-  const [state, setState] = useState(null);
+  const [entity, setEntity] = useState(null);
+  useEffect(() => {
+    if (ref.current && ref.current.cesiumElement) {
+      setDate(ref.current.cesiumElement.animation._knobDate);
+    }
+  }, []);
 
   return (
-    <Viewer full ref={ref} timeline={false} animation={false}>
+    <Viewer full ref={ref}>
       {centroids &&
         centroids.map((el) => {
           return (
@@ -39,12 +45,6 @@ export default function Cesium({ centroids }) {
             />
           );
         })}
-      <ScreenSpaceEventHandler>
-        <ScreenSpaceEvent
-          action={(evt) => console.log(evt)}
-          type={ScreenSpaceEventType.LEFT_CLICK}
-        />
-      </ScreenSpaceEventHandler>
     </Viewer>
   );
 }
