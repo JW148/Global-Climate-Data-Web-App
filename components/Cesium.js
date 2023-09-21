@@ -7,9 +7,39 @@ import { AdapterMoment } from "@mui/x-date-pickers/AdapterMoment";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 
-import { API_KEY } from "../API";
+//date/time library
 import moment from "moment";
-import { count } from "d3";
+
+//import d3 library to make color scale
+import * as d3 from "d3";
+//min max temp values from the dataset overview on the kaggle website
+let colours = d3
+  .scaleThreshold()
+  .domain([
+    -40, -35, -30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40,
+  ])
+  .range([
+    "rgb(14, 77, 100)",
+    "rgb(16, 94, 110)",
+    "rgb(19, 113, 119)",
+    "rgb(21, 128, 123)",
+    "rgb(24, 137, 119)",
+    "rgb(26, 145, 114)",
+    "rgb(29, 154, 108)",
+    "rgb(36, 158, 85)",
+    "rgb(42, 163, 62)",
+    "rgb(56, 167, 49)",
+    "rgb(90, 171, 56)",
+    "rgb(122, 175, 62)",
+    "rgb(153, 179, 69)",
+    "rgb(182, 183, 76)",
+    "rgb(187, 164, 83)",
+    "rgb(191, 145, 90)",
+    "rgb(195, 128, 97)",
+    "rgb(198, 112, 105)",
+  ]);
+
+import { API_KEY } from "../API";
 Ion.defaultAccessToken = API_KEY;
 
 export default function Cesium({ centroids, dateRange, tempData }) {
@@ -26,8 +56,16 @@ export default function Cesium({ centroids, dateRange, tempData }) {
 
   useEffect(() => {
     console.log(currDate.format("YYYY-MM-DD"));
-    console.log(currTempData.get("Guatemala"));
+    console.log(currTempData);
   }, [currDate]);
+
+  //this function is used to create a new Cesium color from the d3 color scale
+  const getColour = (temp) => {
+    if (temp) return new Color.fromCssColorString(colours(temp));
+    else return new Color.fromBytes(0, 0, 0, 0.1);
+  };
+
+  console.log(colours(35));
 
   return (
     <Viewer
@@ -47,7 +85,10 @@ export default function Cesium({ centroids, dateRange, tempData }) {
                 parseFloat(el.longitude),
                 parseFloat(el.latitude, 100)
               )}
-              point={{ pixelSize: 20, color: Color.WHITE }}
+              point={{
+                pixelSize: 20,
+                color: getColour(parseFloat(currTempData.get(el.COUNTRY))),
+              }}
               description={`AvgTemp: ${currTempData.get(el.COUNTRY)}`}
             />
           );
