@@ -9,23 +9,26 @@ import "@fontsource/roboto/400.css";
 import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 
-import { Slider } from "@mui/material";
-
 const Cesium = dynamic(() => import("../components/Cesium"), { ssr: false });
 
-export default function Home({ centroidData, cityTempData }) {
-  let map = new Map(JSON.parse(cityTempData));
-  console.log(map);
-  const [date, setDate] = useState(null);
-
-  const handleOnClick = () => {
-    console.log(date.children[0].textContent);
-  };
+export default function Home({ centroidData, dateRange, tempData }) {
+  const tempDataMap = new Map();
 
   useEffect(() => {
-    console.log("here");
-    console.log(date);
-  }, [date]);
+    tempData.forEach((el) => {
+      //if the date (key) hasn't already been added to the map, add it along with the current entries data
+      if (!tempDataMap.has(el.dt)) {
+        tempDataMap.set(el.dt, [
+          { country: el.Country, avgTemp: el.AverageTemperature },
+        ]);
+        //otherwise, if it has been added, append the entry to the array of values for that date
+      } else {
+        tempDataMap
+          .get(el.dt)
+          .push({ country: el.Country, avgTemp: el.AverageTemperature });
+      }
+    });
+  }, []);
 
   return (
     <>
@@ -33,32 +36,35 @@ export default function Home({ centroidData, cityTempData }) {
         <link rel="stylesheet" href="cesium/Widgets/widgets.css" />
         <meta name="viewport" content="initial-scale=1, width=device-width" />
       </Head>
-      <Cesium centroids={centroidData} date={date} setDate={setDate} />
-      <Slider
-        aria-label="Temperature"
-        defaultValue={30}
-        valueLabelDisplay="auto"
-        step={10}
-        marks
-        min={10}
-        max={110}
-        onChange={handleOnClick}
+      <Cesium
+        centroids={centroidData}
+        dateRange={dateRange}
+        tempData={tempDataMap}
       />
     </>
   );
 }
 
-import { getCountryCentroids, getDateRange } from "../lib/dataParsing";
-import { useEffect, useRef, useState } from "react";
+import {
+  getCountryCentroids,
+  getDateRange,
+  getTempData,
+} from "../lib/dataParsing";
+import { useEffect } from "react";
 
 export async function getStaticProps() {
   const centroidData = getCountryCentroids();
-  const cityTempData = JSON.stringify(Array.from(getDateRange().entries()));
+  //have to serialise the map object returned by getDateRange for it to be sent to the client who can then turn it back into
+  //a map object on their local device
+  // const cityTempData = JSON.stringify(Array.from(getDateRange().entries()));
+  const dateRange = getDateRange();
+  const tempData = getTempData();
 
   return {
     props: {
       centroidData,
-      cityTempData,
+      dateRange,
+      tempData,
     },
   };
 }
