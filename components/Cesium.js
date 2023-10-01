@@ -1,6 +1,6 @@
 import { Cartesian3, Color, Ion } from "cesium";
-import { useState, useRef, useEffect } from "react";
-import { Entity, Viewer } from "resium";
+import { useState, useRef } from "react";
+import { Entity, GeoJsonDataSource, PolygonGraphics, Viewer } from "resium";
 
 //imports for the calendar input
 import { AdapterMoment } from "@mui/x-date-pickers/AdapterMoment";
@@ -12,6 +12,7 @@ import moment from "moment";
 
 //import d3 library to make color scale
 import * as d3 from "d3";
+
 //min max temp values from the dataset overview on the kaggle website
 let colours = d3
   .scaleThreshold()
@@ -19,30 +20,32 @@ let colours = d3
     -40, -35, -30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40,
   ])
   .range([
-    "rgb(14, 77, 100)",
-    "rgb(16, 94, 110)",
-    "rgb(19, 113, 119)",
-    "rgb(21, 128, 123)",
-    "rgb(24, 137, 119)",
-    "rgb(26, 145, 114)",
-    "rgb(29, 154, 108)",
-    "rgb(36, 158, 85)",
-    "rgb(42, 163, 62)",
-    "rgb(56, 167, 49)",
-    "rgb(90, 171, 56)",
-    "rgb(122, 175, 62)",
-    "rgb(153, 179, 69)",
-    "rgb(182, 183, 76)",
-    "rgb(187, 164, 83)",
-    "rgb(191, 145, 90)",
-    "rgb(195, 128, 97)",
-    "rgb(198, 112, 105)",
+    "rgba(14, 77, 100, 1)",
+    "rgba(16, 94, 110, 1)",
+    "rgba(19, 113, 119, 1)",
+    "rgba(21, 128, 123, 1)",
+    "rgba(24, 137, 119, 1)",
+    "rgba(26, 145, 114, 1)",
+    "rgba(29, 154, 108, 1)",
+    "rgba(36, 158, 85, 1)",
+    "rgba(42, 163, 62, 1)",
+    "rgba(56, 167, 49, 1)",
+    "rgba(90, 171, 56, 1)",
+    "rgba(122, 175, 62, 1)",
+    "rgba(153, 179, 69, 1)",
+    "rgba(182, 183, 76, 1)",
+    "rgba(187, 164, 83, 1)",
+    "rgba(191, 145, 90, 1)",
+    "rgba(195, 128, 97, 1)",
+    "rgba(198, 112, 105, 1)",
   ]);
 
 import { API_KEY } from "../API";
 Ion.defaultAccessToken = API_KEY;
 
-export default function Cesium({ centroids, dateRange, tempData }) {
+export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
+  // console.log(countryGeoJSON.features[0].geometry.coordinates);
+  const features = countryGeoJSON.features;
   const ref = useRef(null);
 
   const [currDate, setCurrDate] = useState(moment(dateRange[1]));
@@ -54,18 +57,21 @@ export default function Cesium({ centroids, dateRange, tempData }) {
       .map((el) => [el.country, el.avgTemp])
   );
 
-  useEffect(() => {
-    console.log(currDate.format("YYYY-MM-DD"));
-    console.log(currTempData);
-  }, [currDate]);
-
   //this function is used to create a new Cesium color from the d3 color scale
   const getColour = (temp) => {
     if (temp) return new Color.fromCssColorString(colours(temp));
-    else return new Color.fromBytes(0, 0, 0, 0.1);
+    else return new Color.fromBytes(150, 150, 150, 255);
   };
 
-  console.log(colours(35));
+  const getInfo = (properties) => {
+    return `
+      <h3>Name: ${properties.NAME}</h3>
+      <br>
+      Population: ${properties.POP_EST}
+      <br>
+      AvgTemp: ${currTempData.get(properties.NAME_CIAWF)}
+    `;
+  };
 
   return (
     <Viewer
@@ -76,30 +82,101 @@ export default function Cesium({ centroids, dateRange, tempData }) {
       timeline={false}
       baseLayerPicker={false}
     >
-      {centroids &&
+      {features.map((el) => {
+        if (el.geometry.type === "Polygon") {
+          return (
+            <Entity
+              name={el.properties.NAME_CIAWF}
+              description={getInfo(el.properties)}
+            >
+              <PolygonGraphics
+                hierarchy={Cartesian3.fromDegreesArray(
+                  el.geometry.coordinates.flat(2)
+                )}
+                material={getColour(
+                  parseFloat(currTempData.get(el.properties.NAME_CIAWF))
+                )}
+              />
+            </Entity>
+          );
+        } else if (el.geometry.type === "MultiPolygon") {
+          return (
+            <Entity
+              name={el.properties.NAME_CIAWF}
+              description={getInfo(el.properties)}
+            >
+              {el.geometry.coordinates.map((polygon) => {
+                return (
+                  <Entity
+                    name={el.properties.NAME_CIAWF}
+                    description={getInfo(el.properties)}
+                  >
+                    <PolygonGraphics
+                      hierarchy={Cartesian3.fromDegreesArray(polygon.flat(2))}
+                      material={getColour(
+                        parseFloat(currTempData.get(el.properties.NAME_CIAWF))
+                      )}
+                    />
+                  </Entity>
+                );
+              })}
+            </Entity>
+          );
+        }
+      })}
+      {/* <GeoJsonDataSource
+        data={countryGeoJSON}
+        describe={(properties) => getInfo(properties)}
+      /> */}
+      {/* {countryGeoJSON.features.map((el) => {
+        // console.log(parseFloat(currTempData.get(el.properties.name_ciawf)));
+        return (
+          <Entity name={el.properties.name_ciawf}>
+            <PolygonGraphics
+              hierarchy={Cartesian3.fromDegreesArray(
+                el.geometry.coordinates.flat(3)
+              )}
+              outline={true}
+              outlineColor={Color.BLACK}
+              outlineWidth={1}
+            />
+          </Entity>
+        );
+      })} */}
+      {/* <Entity>
+        <PolygonGraphics
+          hierarchy={Cartesian3.fromDegreesArray(
+            countryGeoJSON.features[1].geometry.coordinates.flat(2)
+          )}
+          material={Color.ORANGE.withAlpha(0.5)}
+        />
+      </Entity> */}
+
+      {/* {centroids &&
         centroids.map((el) => {
           return (
             <Entity
               name={el.COUNTRY}
               position={Cartesian3.fromDegrees(
                 parseFloat(el.longitude),
-                parseFloat(el.latitude, 100)
+                parseFloat(el.latitude, 1)
               )}
               point={{
                 pixelSize: 20,
                 color: getColour(parseFloat(currTempData.get(el.COUNTRY))),
               }}
               description={`AvgTemp: ${currTempData.get(el.COUNTRY)}`}
+              key={el.COUNTRY}
             />
           );
-        })}
+        })} */}
       <LocalizationProvider dateAdapter={AdapterMoment}>
         <div
           style={{
             position: "absolute",
             top: "5em",
             left: "5em",
-            backgroundColor: "white",
+            backgroundColor: "rgba(255,255,255,0.7)",
             borderRadius: "5px",
             padding: "10px",
           }}

@@ -11,7 +11,7 @@ import "@fontsource/roboto/700.css";
 
 const Cesium = dynamic(() => import("../components/Cesium"), { ssr: false });
 
-export default function Home({ centroidData, dateRange, tempData }) {
+export default function Home({ dateRange, tempData, countryGeoJSON }) {
   const tempDataMap = new Map();
 
   useEffect(() => {
@@ -37,34 +37,30 @@ export default function Home({ centroidData, dateRange, tempData }) {
         <meta name="viewport" content="initial-scale=1, width=device-width" />
       </Head>
       <Cesium
-        centroids={centroidData}
         dateRange={dateRange}
         tempData={tempDataMap}
+        countryGeoJSON={countryGeoJSON}
       />
     </>
   );
 }
 
-import {
-  getCountryCentroids,
-  getDateRange,
-  getTempData,
-} from "../lib/dataParsing";
+import { getDateRange, getGeoJSON, getTempData } from "../lib/dataParsing";
 import { useEffect } from "react";
 
 export async function getStaticProps() {
-  const centroidData = getCountryCentroids();
   //have to serialise the map object returned by getDateRange for it to be sent to the client who can then turn it back into
   //a map object on their local device
   // const cityTempData = JSON.stringify(Array.from(getDateRange().entries()));
   const dateRange = getDateRange();
   const tempData = getTempData();
+  const countryGeoJSON = getGeoJSON();
 
   return {
     props: {
-      centroidData,
       dateRange,
       tempData,
+      countryGeoJSON,
     },
   };
 }
