@@ -14,31 +14,36 @@ import moment from "moment";
 import * as d3 from "d3";
 
 //min max temp values from the dataset overview on the kaggle website
-let colours = d3
-  .scaleThreshold()
-  .domain([
-    -40, -35, -30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40,
-  ])
-  .range([
-    "rgba(14, 77, 100, 1)",
-    "rgba(16, 94, 110, 1)",
-    "rgba(19, 113, 119, 1)",
-    "rgba(21, 128, 123, 1)",
-    "rgba(24, 137, 119, 1)",
-    "rgba(26, 145, 114, 1)",
-    "rgba(29, 154, 108, 1)",
-    "rgba(36, 158, 85, 1)",
-    "rgba(42, 163, 62, 1)",
-    "rgba(56, 167, 49, 1)",
-    "rgba(90, 171, 56, 1)",
-    "rgba(122, 175, 62, 1)",
-    "rgba(153, 179, 69, 1)",
-    "rgba(182, 183, 76, 1)",
-    "rgba(187, 164, 83, 1)",
-    "rgba(191, 145, 90, 1)",
-    "rgba(195, 128, 97, 1)",
-    "rgba(198, 112, 105, 1)",
-  ]);
+const tempDomain = [
+  -40, -35, -30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40,
+];
+const tempRange = [
+  "rgba(14, 77, 100, 1)",
+  "rgba(16, 94, 110, 1)",
+  "rgba(19, 113, 119, 1)",
+  "rgba(21, 128, 123, 1)",
+  "rgba(24, 137, 119, 1)",
+  "rgba(26, 145, 114, 1)",
+  "rgba(29, 154, 108, 1)",
+  "rgba(36, 158, 85, 1)",
+  "rgba(42, 163, 62, 1)",
+  "rgba(56, 167, 49, 1)",
+  "rgba(90, 171, 56, 1)",
+  "rgba(122, 175, 62, 1)",
+  "rgba(153, 179, 69, 1)",
+  "rgba(182, 183, 76, 1)",
+  "rgba(187, 164, 83, 1)",
+  "rgba(191, 145, 90, 1)",
+  "rgba(195, 128, 97, 1)",
+  "rgba(198, 112, 105, 1)",
+];
+let colours = d3.scaleThreshold().domain(tempDomain).range(tempRange);
+
+//this function is used to create a new Cesium color from the d3 color scale
+const getColour = (temp) => {
+  if (temp) return new Color.fromCssColorString(colours(temp));
+  else return new Color.fromBytes(150, 150, 150, 255);
+};
 
 import { API_KEY } from "../API";
 Ion.defaultAccessToken = API_KEY;
@@ -57,19 +62,11 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
       .map((el) => [el.country, el.avgTemp])
   );
 
-  //this function is used to create a new Cesium color from the d3 color scale
-  const getColour = (temp) => {
-    if (temp) return new Color.fromCssColorString(colours(temp));
-    else return new Color.fromBytes(150, 150, 150, 255);
-  };
-
   const getInfo = (properties) => {
     return `
-      <h3>Name: ${properties.NAME}</h3>
-      <br>
-      Population: ${properties.POP_EST}
-      <br>
-      AvgTemp: ${currTempData.get(properties.NAME_CIAWF)}
+      <h3>Average Temperature: ${parseFloat(
+        currTempData.get(properties.NAME_CIAWF)
+      ).toFixed(3)}°C</h3>
     `;
   };
 
@@ -93,6 +90,9 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
                 hierarchy={Cartesian3.fromDegreesArray(
                   el.geometry.coordinates.flat(2)
                 )}
+                outline={true}
+                outlineColor={Color.BLACK}
+                height={0} //polygon has to be set outherwise outline isn't rendered
                 material={getColour(
                   parseFloat(currTempData.get(el.properties.NAME_CIAWF))
                 )}
@@ -116,6 +116,9 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
                       material={getColour(
                         parseFloat(currTempData.get(el.properties.NAME_CIAWF))
                       )}
+                      outline={true}
+                      height={0}
+                      outlineColor={Color.BLACK}
                     />
                   </Entity>
                 );
@@ -124,34 +127,6 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
           );
         }
       })}
-      {/* <GeoJsonDataSource
-        data={countryGeoJSON}
-        describe={(properties) => getInfo(properties)}
-      /> */}
-      {/* {countryGeoJSON.features.map((el) => {
-        // console.log(parseFloat(currTempData.get(el.properties.name_ciawf)));
-        return (
-          <Entity name={el.properties.name_ciawf}>
-            <PolygonGraphics
-              hierarchy={Cartesian3.fromDegreesArray(
-                el.geometry.coordinates.flat(3)
-              )}
-              outline={true}
-              outlineColor={Color.BLACK}
-              outlineWidth={1}
-            />
-          </Entity>
-        );
-      })} */}
-      {/* <Entity>
-        <PolygonGraphics
-          hierarchy={Cartesian3.fromDegreesArray(
-            countryGeoJSON.features[1].geometry.coordinates.flat(2)
-          )}
-          material={Color.ORANGE.withAlpha(0.5)}
-        />
-      </Entity> */}
-
       {/* {centroids &&
         centroids.map((el) => {
           return (
@@ -192,6 +167,24 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
           />
         </div>
       </LocalizationProvider>
+      <TempScale></TempScale>
     </Viewer>
+  );
+}
+
+import styles from "./TempScale.module.css";
+
+function TempScale() {
+  return (
+    <div className={styles.container}>
+      {tempDomain.map((temp, i) => {
+        let colour = colours(temp);
+        return (
+          <div key={i} style={{ backgroundColor: colour }}>
+            <p style={{ padding: "0px 4px 0px 4px" }}>{temp}°C</p>
+          </div>
+        );
+      })}
+    </div>
   );
 }
