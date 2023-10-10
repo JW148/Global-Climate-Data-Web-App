@@ -1,7 +1,5 @@
 import Head from "next/head";
 import dynamic from "next/dynamic";
-import fs from "fs";
-import path from "path";
 
 //materialUI fonts
 import "@fontsource/roboto/300.css";
