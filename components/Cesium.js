@@ -19,12 +19,16 @@ import moment from "moment";
 //import d3 library to make color scale
 import * as d3 from "d3";
 
+//css module style for the temp scale component
+import styles from "./TempScale.module.css";
+
 //min max temp values from the dataset overview on the kaggle website
 const tempDomain = [
   -40, -35, -30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20, 25, 30, 35, 40,
 ];
 const compareDomain = [
-  -8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5, 6, 7, 8,
+  -2.3, -1.8, -1.5, -1.2, -0.9, -0.6, -0.3, 0, 0.3, 0.6, 0.9, 1.2, 1.5, 1.8,
+  2.3,
 ];
 const tempRange = [
   "rgba(14, 77, 100, 1)",
@@ -46,13 +50,8 @@ const tempRange = [
   "rgba(195, 128, 97, 1)",
   "rgba(198, 112, 105, 1)",
 ];
-let colours = d3.scaleThreshold().domain(tempDomain).range(tempRange);
 
-//this function is used to create a new Cesium color from the d3 color scale
-const getColour = (temp) => {
-  if (temp) return new Color.fromCssColorString(colours(temp));
-  else return new Color.fromBytes(150, 150, 150, 255);
-};
+let colours = null;
 
 import { API_KEY } from "../API";
 Ion.defaultAccessToken = API_KEY;
@@ -61,7 +60,6 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
   // console.log(countryGeoJSON.features[0].geometry.coordinates);
   const features = countryGeoJSON.features;
   const ref = useRef(null);
-  console.log(dateRange);
 
   const [currDate, setCurrDate] = useState(moment("1900-01-01"));
   const [compareDate, setCompareDate] = useState(null);
@@ -70,20 +68,72 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
   let currTempData = new Map(
     tempData
       .get(currDate.format("YYYY-MM-DD"))
-      .map((el) => [el.country, el.avgTemp])
+      .map((el) => [el.country, parseFloat(el.avgTemp)])
   );
 
-  const handleCompDateChange = (val) => {
-    let comparisonData = tempData.get(val.format("YYYY-MM-DD"));
-    comparisonData.forEach((el) => {
-      let currTemp = currTempData.get(el.country);
-      if (currTemp) {
-        let tempDiff = parseFloat(currTemp) - parseFloat(el.avgTemp);
-        currTempData.set(el.country, tempDiff);
-      }
-    });
-    console.log(currTempData);
+  //this function is used to create a new Cesium color from the d3 color scale
+  const getColour = (temp) => {
+    if (compareDate && temp) {
+      colours = d3.scaleThreshold().domain(compareDomain).range(tempRange);
+      return new Color.fromCssColorString(colours(temp));
+    } else if (temp) {
+      colours = d3.scaleThreshold().domain(tempDomain).range(tempRange);
+      return new Color.fromCssColorString(colours(temp));
+    } else return new Color.fromBytes(150, 150, 150, 255);
   };
+
+  let currTempData2 = function () {
+    if (compareDate) {
+      //first get the data for the comparison date as an array
+      let compareData = tempData.get(compareDate.format("YYYY-MM-DD"));
+      //then find all the countries that match with the currentTempData entries
+      //(not all countries have data for certain dates so the comparison will only show
+      //comparison data for countries that have entries for both dates)
+      let compareDataMap = new Map();
+      compareData.forEach((el) => {
+        if (currTempData.get(el.country)) {
+          //calculate the difference in temp between the two dates
+          let diff =
+            parseFloat(el.avgTemp) - parseFloat(currTempData.get(el.country));
+          //add the the temp diff data to the new map
+          compareDataMap.set(el.country, diff);
+        }
+      });
+      return compareDataMap;
+    } else {
+      return currTempData;
+    }
+  };
+
+  function TempScale() {
+    if (compareDate) {
+      return (
+        <div className={styles.container}>
+          {compareDomain.map((temp, i) => {
+            let colour = colours(temp);
+            return (
+              <div key={i} style={{ backgroundColor: colour }}>
+                <p style={{ padding: "0px 4px 0px 4px" }}>{temp}°C</p>
+              </div>
+            );
+          })}
+        </div>
+      );
+    } else {
+      return (
+        <div className={styles.container}>
+          {tempDomain.map((temp, i) => {
+            let colour = colours(temp);
+            return (
+              <div key={i} style={{ backgroundColor: colour }}>
+                <p style={{ padding: "0px 4px 0px 4px" }}>{temp}°C</p>
+              </div>
+            );
+          })}
+        </div>
+      );
+    }
+  }
 
   return (
     <Viewer
@@ -106,7 +156,7 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
                 outlineColor={Color.BLACK}
                 height={0} //polygon has to be set outherwise outline isn't rendered
                 material={getColour(
-                  parseFloat(currTempData.get(el.properties.NAME_CIAWF))
+                  currTempData2().get(el.properties.NAME_CIAWF)
                 )}
               />
             </Entity>
@@ -188,22 +238,5 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
       </LocalizationProvider>
       <TempScale />
     </Viewer>
-  );
-}
-
-import styles from "./TempScale.module.css";
-
-function TempScale() {
-  return (
-    <div className={styles.container}>
-      {tempDomain.map((temp, i) => {
-        let colour = colours(temp);
-        return (
-          <div key={i} style={{ backgroundColor: colour }}>
-            <p style={{ padding: "0px 4px 0px 4px" }}>{temp}°C</p>
-          </div>
-        );
-      })}
-    </div>
   );
 }
