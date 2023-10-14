@@ -1,6 +1,6 @@
 import { Cartesian3, Color, Ion } from "cesium";
 import { useState, useRef } from "react";
-import { Entity, GeoJsonDataSource, PolygonGraphics, Viewer } from "resium";
+import { Entity, PolygonGraphics, Viewer } from "resium";
 
 //imports for the calendar input
 import { AdapterMoment } from "@mui/x-date-pickers/AdapterMoment";
@@ -9,7 +9,6 @@ import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 
 //for the clear datepicker workaround
 import IconButton from "@mui/material/IconButton";
-import DeleteIcon from "@mui/icons-material/Delete";
 import ClearIcon from "@mui/icons-material/Clear";
 import Grid from "@mui/material/Grid";
 
@@ -57,12 +56,12 @@ import { API_KEY } from "../API";
 Ion.defaultAccessToken = API_KEY;
 
 export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
-  // console.log(countryGeoJSON.features[0].geometry.coordinates);
+  //get the features from the geoJSON data to display the vector map (country polygons)
   const features = countryGeoJSON.features;
-  const ref = useRef(null);
 
   const [currDate, setCurrDate] = useState(moment("1900-01-01"));
   const [compareDate, setCompareDate] = useState(null);
+
   //using the currentDate, the array of country temp data is returned from the tempData map
   //it's then converted back into a map, with the country name as the key, and it's temperature as the value
   let currTempData = new Map(
@@ -79,10 +78,11 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
     } else if (temp) {
       colours = d3.scaleThreshold().domain(tempDomain).range(tempRange);
       return new Color.fromCssColorString(colours(temp));
+      //if there is no data for a given country, grey it out
     } else return new Color.fromBytes(150, 150, 150, 255);
   };
 
-  let currTempData2 = function () {
+  let getTempData = function () {
     if (compareDate) {
       //first get the data for the comparison date as an array
       let compareData = tempData.get(compareDate.format("YYYY-MM-DD"));
@@ -105,6 +105,7 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
     }
   };
 
+  //function that returns a different temp scale based on whether the user is comparing two dates or not
   function TempScale() {
     if (compareDate) {
       return (
@@ -135,10 +136,31 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
     }
   }
 
+  //returns info to be displayed for the entities properties
+  const getInfo = (properties) => {
+    if (compareDate) {
+      return `
+        <h3>Average Temperature in ${currDate.format(
+          "MMMM YYYY"
+        )}:</h3> ${parseFloat(currTempData.get(properties.NAME_CIAWF)).toFixed(
+        3
+      )}°C
+      <h3>Temperature Difference Compared to ${compareDate.format(
+        "MMMM YYYY"
+      )}</h3>
+      ${parseFloat(getTempData().get(properties.NAME_CIAWF)).toFixed(3)}°C
+      `;
+    }
+    return `
+      <h3>Average Temperature: ${parseFloat(
+        currTempData.get(properties.NAME_CIAWF)
+      ).toFixed(3)}°C</h3>
+    `;
+  };
+
   return (
     <Viewer
       full
-      ref={ref}
       animation={false}
       homeButton={false}
       timeline={false}
@@ -147,7 +169,10 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
       {features.map((el) => {
         if (el.geometry.type === "Polygon") {
           return (
-            <Entity name={el.properties.NAME_CIAWF}>
+            <Entity
+              name={el.properties.NAME_CIAWF}
+              description={getInfo(el.properties)}
+            >
               <PolygonGraphics
                 hierarchy={Cartesian3.fromDegreesArray(
                   el.geometry.coordinates.flat(2)
@@ -156,7 +181,7 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
                 outlineColor={Color.BLACK}
                 height={0} //polygon has to be set outherwise outline isn't rendered
                 material={getColour(
-                  currTempData2().get(el.properties.NAME_CIAWF)
+                  getTempData().get(el.properties.NAME_CIAWF)
                 )}
               />
             </Entity>
@@ -166,11 +191,14 @@ export default function Cesium({ dateRange, tempData, countryGeoJSON }) {
             <Entity name={el.properties.NAME_CIAWF}>
               {el.geometry.coordinates.map((polygon) => {
                 return (
-                  <Entity name={el.properties.NAME_CIAWF}>
+                  <Entity
+                    name={el.properties.NAME_CIAWF}
+                    description={getInfo(el.properties)}
+                  >
                     <PolygonGraphics
                       hierarchy={Cartesian3.fromDegreesArray(polygon.flat(2))}
                       material={getColour(
-                        parseFloat(currTempData.get(el.properties.NAME_CIAWF))
+                        parseFloat(getTempData().get(el.properties.NAME_CIAWF))
                       )}
                       outline={true}
                       height={0}
